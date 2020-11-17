@@ -1,116 +1,79 @@
+#include <type_traits>
 #include <iostream>
-#include <string>
-#include <string_view>
-#include <cctype>
-#include <unordered_set>
-#include <sstream>
+#include <iterator>
+#include <fstream>
+#include <cstdlib>
+#include "lexer.hh"
 
-using std::string_literals::operator""s;
-auto keyword_table = std::unordered_set{
-  "begin"s, "end"s,
-  "label"s, "integer"s,
-  "goto"s,
-  "if"s, "then"s, "else"s,"fi"s,
-  "output"s, "input"s,
+#include <unordered_map>
+
+auto kw2str_lut = std::unordered_map<compiler::kw, std::string>{
+  { compiler::kw::kw_begin, "begin" },
+  { compiler::kw::kw_end, "end" },
+  { compiler::kw::kw_label, "label" },
+  { compiler::kw::kw_integer, "integer" },
+  { compiler::kw::kw_goto, "goto" },
+  { compiler::kw::kw_if, "if" },
+  { compiler::kw::kw_then, "then" },
+  { compiler::kw::kw_else, "else" },
+  { compiler::kw::kw_fi, "fi" },
+  { compiler::kw::kw_output, "output" },
+  { compiler::kw::kw_input, "input" },
 };
 
-auto tokenize(std::string_view input) -> void;
+auto op2str_lut = std::unordered_map<compiler::op, std::string>{
+  { compiler::op::op_less, "less" },
+  { compiler::op::op_greater, "greater" },
+  { compiler::op::op_equal, "equal" },
+  { compiler::op::op_plus, "plus" },
+  { compiler::op::op_minus, "minus" },
+  { compiler::op::op_asterisk, "asterisk" },
+  { compiler::op::op_slash, "slash" },
+};
 
-auto main() -> int {
-  auto input = std::string{};
+auto delim2str_lut = std::unordered_map<compiler::delim, std::string>{
+  { compiler::delim::delim_assign, "assign" },
+  { compiler::delim::delim_comma, "comma" },
+  { compiler::delim::delim_period, "period" },
+  { compiler::delim::delim_semicolon, "semicolon" },
+  { compiler::delim::delim_colon, "colon" },
+  { compiler::delim::delim_open_paren, "open_paren" },
+  { compiler::delim::delim_close_paren, "close_paren" },
+};
 
-  for (;;) {
-    std::cout << ">> " << std::flush;
-    std::getline(std::cin, input);
-    if (std::cin.eof() || std::cin.fail()) {
-      break;
-    }
-    tokenize(input);
+auto main(int argc, char *argv[]) -> int {
+  if (argc != 2) {
+    std::cerr << "should run with source file." << std::endl;
+    std::exit(EXIT_FAILURE);
   }
-}
 
-auto tokenize(std::string_view input) -> void {
-  auto it = input.begin();
-  auto end = input.end();
+  auto source = std::ifstream(argv[1]);
+  if (!source.is_open()) {
+    std::cerr << "file open failed." << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
 
-  while (it != end) {
-    auto chr = *it;
-    if (std::isspace(chr)) {
-      ++it;
-    } else if (std::isalpha(chr) || chr == '_') {
-      auto ss = std::stringstream{};
-      ss << chr;
-      ++it;
-      while (it != end && (std::isalnum(*it) || chr == '_')) {
-        ss << *it;
-        ++it;
-      }
-      if (keyword_table.find(ss.str()) == keyword_table.end()) {
-        std::cout << "id\"" << ss.str() << '"' << std::endl;
-      } else {
-        std::cout << "keyword\"" << ss.str() << '"' << std::endl;
-      }
-    } else if (std::isdigit(chr)) {
-      std::cout << "number\"" << chr;
-      ++it;
-      while (it != end && std::isdigit(*it)) {
-        std::cout << *it;
-        ++it;
-      }
-      std::cout << '"' << std::endl;
-    } else if (chr == '<') {
-      std::cout << "operator\"<\"" << std::endl;
-      ++it;
-    } else if (chr == '>') {
-      std::cout << "operator\">\"" << std::endl;
-      ++it;
-    } else if (chr == '=') {
-      ++it;
-      if (it != end && *it == '>') {
-        std::cout << "delimiter\"=>\"" << std::endl;
-        ++it;
-      } else {
-        std::cout << "operator\"=\"" << std::endl;
-      }
-    } else if (chr == '+') {
-      std::cout << "operator\"+\"" << std::endl;
-      ++it;
-    } else if (chr == '-') {
-      std::cout << "operator\"-\"" << std::endl;
-      ++it;
-    } else if (chr == '*') {
-      std::cout << "operator\"*\"" << std::endl;
-      ++it;
-    } else if (chr == '/') {
-      std::cout << "operator\"/\"" << std::endl;
-      ++it;
-    } else if (chr == ',') {
-      std::cout << "delimiter\",\"" << std::endl;
-      ++it;
-    } else if (chr == '.') {
-      std::cout << "delimiter\".\"" << std::endl;
-      ++it;
-    } else if (chr == ';') {
-      std::cout << "delimiter\";\"" << std::endl;
-      ++it;
-    } else if (chr == ':') {
-      std::cout << "delimiter\":\"" << std::endl;
-      ++it;
-    } else if (chr == '(') {
-      std::cout << "delimiter\"(\"" << std::endl;
-      ++it;
-    } else if (chr == ')') {
-      std::cout << "delimiter\")\"" << std::endl;
-      ++it;
-    } else {
-      std::cout << "error\"" << chr;
-      ++it;
-      while (it != end && !std::isspace(*it) && !std::isalnum(*it) &&
-          std::string{"_<>=+-*/,.;:()"}.find(*it) == std::string::npos) {
-        std::cout << *it;
-        ++it;
-      }
-      std::cout << '"' << std::endl;
-    }
+  auto str = std::string{std::istreambuf_iterator<char>{source},
+    std::istreambuf_iterator<char>{}};
+  auto lexer = compiler::lexer{};
+  auto tokens = lexer.tokenize(str);
+  for (auto const &token : tokens) {
+    switch (token.index()) {
+      case 0:
+        std::cout << "id   [" << std::get<0>(token) << ']' << std::endl;
+        break;
+      case 1:
+        std::cout << "num  [" << std::get<1>(token) << ']' << std::endl;
+        break;
+      case 2:
+        std::cout << "kw   [" << kw2str_lut[std::get<2>(token)] << ']' << std::endl;
+        break;
+      case 3:
+        std::cout << "op   [" << op2str_lut[std::get<3>(token)] << ']' << std::endl;
+        break;
+      case 4:
+        std::cout << "delim[" << delim2str_lut[std::get<4>(token)] << ']' << std::endl;
+        break;
+    };
   }
 }

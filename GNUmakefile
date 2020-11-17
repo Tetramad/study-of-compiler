@@ -1,8 +1,8 @@
 EXE = lexer
-SRC = lexer.cc
+SRC = ${wildcard *.cc}
 OBJ = ${SRC:.cc=.o}
 
-CXXFLAGS ?= -std=c++17
+CXXFLAGS ?= -std=c++17 -O2
 
 all: $(EXE)
 
