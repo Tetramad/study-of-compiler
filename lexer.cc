@@ -1,41 +1,26 @@
 #include <iostream>
+#include <fstream>
 
 #include "lexer.hh"
+#include "spl_automata.hh"
 
-auto source_code = std::string{R"(
-begin
-  integer N, min, max, now, idx;
-  label getInput;
+auto main(int argc, char *argv[]) -> int {
+  if (argc != 2) {
+    std::cerr << "run with exactly one source file path." << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
 
-  input => N;
-  0 => idx;
-  0 => max;
-  2147483647 => min;
+  auto source_fs = std::ifstream(argv[1]);
+  if (!source_fs.is_open()) {
+    std::cerr << "failed to open file \"" << argv[1] << "\"." << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+  source_fs.unsetf(source_fs.skipws);
 
-getInput:
-  input => now;
-  idx + 1 => idx;
-
-  if now > max then
-    now => max
-  fi;
-
-  if now < min then
-    now => min
-  fi;
-
-  if idx < N then
-    goto getInput
-  fi;
-
-  output(min, max)
-end.
-)"};
-
-auto main() -> int {
-  using compiler::tokenize;
-
-  auto tokens = tokenize(source_code.begin(), source_code.end());
+  auto tokens = compiler::tokenize(
+      std::istream_iterator<char>(source_fs),
+      std::istream_iterator<char>(),
+      spl_automata{});
 
   for (auto const &token : tokens) {
     switch (token.type) {
