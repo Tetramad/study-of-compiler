@@ -7,6 +7,7 @@
 
 #include "lexer.hh"
 #include "spl_automata.hh"
+#include "spl_recursive_descent.hh"
 #include "parser.hh"
 
 auto parse_spl_program(std::vector<token> &tokens) -> bool {
@@ -415,7 +416,7 @@ auto main(int argc, char *argv[]) -> int {
       std::istream_iterator<char>(),
       spl_automata{});
 
-  if (parse_spl_program(tokens)) {
+  if (parse_it(tokens.cbegin(), tokens.cend())) {
     std::cout << "accept!" << std::endl;
   } else {
     std::cout << "reject..." << std::endl;
